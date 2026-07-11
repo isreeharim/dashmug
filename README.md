@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# tabletap
 
-## Getting Started
+Restaurant QR menu SaaS MVP built with Next.js 15, TypeScript, Tailwind, Clerk, Prisma, PostgreSQL, and Cloudinary-ready environment configuration.
 
-First, run the development server:
+## Local setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Copy `.env.example` to `.env.local` and fill in the PostgreSQL and Clerk values.
+2. Run `npm install`.
+3. Generate and migrate the database: `npx prisma generate` then `npx prisma migrate dev`.
+4. Start the application: `npm run dev`.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Use these local hosts to exercise the routing model:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `http://localhost:3000` - marketing site
+- `http://localhost:3000/cedar-salt` - restaurant profile
+- `http://localhost:3000/menu/cedar-salt` - local public menu route
+- `http://menu.localhost:3000/cedar-salt` - public menu subdomain route
+- `http://dashboard.localhost:3000` - owner dashboard
+- `http://admin.localhost:3000` - admin surface
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Architecture
 
-## Learn More
+- `prisma/schema.prisma` is tenant-oriented and contains restaurants, categories, items, dynamic QR records, and scan history.
+- `src/middleware.ts` maps menu, dashboard, and admin hosts to app routes and applies Clerk protection to owner/admin/API routes.
+- `src/app/api` contains validated restaurant creation, QR PNG/SVG rendering, and privacy-preserving scan tracking endpoints.
+- QR images encode `menu.<domain>/<slug>?qr=<publicId>`, preserving the required menu URL while retaining a stable QR identifier for analytics and future table context.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Configure the root domain and `menu`, `dashboard`, and `admin` wildcard/subdomain records in Vercel. Set `NEXT_PUBLIC_MENU_URL` to the production menu origin. For multi-instance rate limiting, replace the included in-memory limiter with an external store such as Upstash Redis before running multiple server instances.

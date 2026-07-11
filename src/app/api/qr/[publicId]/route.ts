@@ -1,0 +1,5 @@
+import { NextResponse } from "next/server";
+import QRCode from "qrcode";
+import { db } from "@/lib/db";
+import { menuOrigin } from "@/lib/utils";
+export async function GET(request: Request, { params }: { params: Promise<{ publicId: string }> }) { const { publicId } = await params; const format = new URL(request.url).searchParams.get("format") === "svg" ? "svg" : "png"; const qr = await db.qRCode.findUnique({ where: { publicId }, include: { restaurant: { select: { slug: true } } } }); if (!qr || !qr.isActive) return NextResponse.json({ error: "QR code not found" }, { status: 404 }); const target = `${menuOrigin()}/${qr.restaurant.slug}?qr=${qr.publicId}`; if (format === "svg") return new NextResponse(await QRCode.toString(target, { type: "svg", margin: 1, width: 1024 }), { headers: { "Content-Type": "image/svg+xml", "Content-Disposition": `attachment; filename="${qr.restaurant.slug}-menu.svg"` } }); const image = await QRCode.toBuffer(target, { width: 1024, margin: 1 }); return new NextResponse(new Uint8Array(image), { headers: { "Content-Type": "image/png", "Content-Disposition": `attachment; filename="${qr.restaurant.slug}-menu.png"` } }); }

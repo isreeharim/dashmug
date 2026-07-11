@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PLATFORM_ADMIN
+  RESTAURANT_OWNER
+}
+
+enum RestaurantStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum Diet {
+  VEG
+  NON_VEG
+}
+
+model User {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  clerkId     String       @unique
+  email       String       @unique
+  name        String?
+  role        UserRole     @default(RESTAURANT_OWNER)
+  restaurants Restaurant[] @relation("OwnerRestaurants")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Restaurant {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId       String           @db.ObjectId
+  owner         User             @relation("OwnerRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
+  name          String
+  slug          String           @unique
+  description   String?
+  logoUrl       String?
+  coverImageUrl String?
+  phone         String?
+  email         String?
+  website       String?
+  address       String?
+  mapsUrl       String?
+  openingHours  Json?
+  socialLinks   Json?
+  status        RestaurantStatus @default(ACTIVE)
+  categories    Category[]
+  qrCodes       QRCode[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([ownerId, status])
+  @@index([status, createdAt])
+}
+
+model Category {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  restaurantId String     @db.ObjectId
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  position     Int        @default(0)
+  items        MenuItem[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, position])
+}
+
+model MenuItem {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  categoryId  String   @db.ObjectId
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  price       Float
+  imageUrl    String?
+  diet        Diet     @default(VEG)
+  isAvailable Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([categoryId, position])
+  @@index([categoryId, isAvailable])
+}
+
+model QRCode {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  restaurantId    String   @db.ObjectId
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  publicId        String   @unique @default(cuid())
+  destinationPath String
+  isActive        Boolean  @default(true)
+  scans           QRScan[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([restaurantId, isActive])
+}
+
+model QRScan {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  qrCodeId  String   @db.ObjectId
+  qrCode    QRCode   @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+  scannedAt DateTime @default(now())
+  userAgent String?
+  referer   String?
+  ipHash    String?
+
+  @@index([qrCodeId, scannedAt])
+  @@index([scannedAt])
+}
