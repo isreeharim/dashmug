@@ -4,7 +4,10 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
-const bodySchema = z.object({ qr: z.string().cuid() });
+const bodySchema = z.object({
+  // Production QR codes use CUIDs; the seeded/demo catalog uses stable readable IDs.
+  qr: z.union([z.string().cuid(), z.string().regex(/^qr_[a-z0-9_]{3,96}$/)]),
+});
 
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";

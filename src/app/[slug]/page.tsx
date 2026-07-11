@@ -3,13 +3,18 @@ import { notFound } from "next/navigation";
 import { MapPin, Phone, Globe, ArrowRight, Clock } from "lucide-react";
 import { db } from "@/lib/db";
 import { Metadata } from "next";
+import { cache } from "react";
+
+// Memoize the database fetch for the duration of a single request cycle
+const getRestaurant = cache(async (slug: string) => {
+  return db.restaurant.findUnique({
+    where: { slug, status: "ACTIVE" },
+  });
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const restaurant = await db.restaurant.findUnique({
-    where: { slug, status: "ACTIVE" },
-    select: { name: true, description: true },
-  });
+  const restaurant = await getRestaurant(slug);
 
   if (!restaurant) {
     return {
@@ -26,9 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function RestaurantProfile({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   
-  const restaurant = await db.restaurant.findUnique({
-    where: { slug, status: "ACTIVE" },
-  });
+  const restaurant = await getRestaurant(slug);
 
   if (!restaurant) {
     notFound();

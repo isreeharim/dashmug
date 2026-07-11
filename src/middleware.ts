@@ -22,8 +22,11 @@ export function middleware(request: NextRequest) {
     url.pathname = `/admin${pathname === "/" ? "" : pathname}`;
     return NextResponse.rewrite(url);
   }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)", "/(api)(.*)"]
+  // APIs remain shared across all hosts; only page requests are subdomain-rewritten.
+  matcher: ["/((?!api|_next|.*\\..*).*)"],
 };

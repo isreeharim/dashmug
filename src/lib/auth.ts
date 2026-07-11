@@ -4,9 +4,15 @@ import { UserRole } from "@prisma/client";
 export async function getSessionUser() {
   // Find the first user in the database (which will be seeded as 'Priya')
   let user = await db.user.findFirst({
-    include: {
+    select: {
+      id: true,
+      clerkId: true,
+      email: true,
+      name: true,
+      role: true,
       restaurants: {
         where: { status: "ACTIVE" },
+        select: { id: true },
       },
     },
   });
@@ -20,9 +26,15 @@ export async function getSessionUser() {
         name: "Priya",
         role: UserRole.RESTAURANT_OWNER,
       },
-      include: {
+      select: {
+        id: true,
+        clerkId: true,
+        email: true,
+        name: true,
+        role: true,
         restaurants: {
           where: { status: "ACTIVE" },
+          select: { id: true },
         },
       },
     });

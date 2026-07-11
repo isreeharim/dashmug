@@ -1,4 +1,13 @@
 import { z } from "zod";
-export const restaurantSchema = z.object({ name: z.string().min(2).max(100), slug: z.string().min(3).max(60).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), description: z.string().max(1000).optional(), phone: z.string().max(30).optional(), email: z.string().email().optional(), website: z.string().url().optional() });
+
+export const restaurantSchema = z.object({
+  name: z.string().min(2).max(100),
+  slug: z.string().min(3).max(60).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  description: z.string().max(1000).optional(),
+  phone: z.string().max(30).optional(),
+  email: z.string().email().optional(),
+  website: z.string().url().optional(),
+  address: z.string().max(300).optional(),
+});
 export const categorySchema = z.object({ name: z.string().min(1).max(80), description: z.string().max(300).optional(), position: z.number().int().min(0).optional() });
 export const menuItemSchema = z.object({ name: z.string().min(1).max(120), description: z.string().max(500).optional(), price: z.coerce.number().nonnegative().max(999999), categoryId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"), diet: z.enum(["VEG", "NON_VEG"]).default("VEG"), isAvailable: z.boolean().default(true), isFeatured: z.boolean().default(false), imageUrl: z.string().url().optional() });

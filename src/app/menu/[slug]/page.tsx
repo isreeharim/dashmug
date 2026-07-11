@@ -2,13 +2,28 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import MenuClient from "./MenuClient";
 import { Metadata } from "next";
+import { cache } from "react";
+
+// Memoize dynamic menu queries for the duration of a single request
+const getMenuRestaurant = cache(async (slug: string) => {
+  return db.restaurant.findUnique({
+    where: { slug, status: "ACTIVE" },
+    include: {
+      categories: {
+        orderBy: { position: "asc" },
+        include: {
+          items: {
+            orderBy: { position: "asc" },
+          },
+        },
+      },
+    },
+  });
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const restaurant = await db.restaurant.findUnique({
-    where: { slug, status: "ACTIVE" },
-    select: { name: true, description: true },
-  });
+  const restaurant = await getMenuRestaurant(slug);
 
   if (!restaurant) {
     return { title: "Menu Not Found" };
@@ -23,19 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function PublicMenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  const restaurant = await db.restaurant.findUnique({
-    where: { slug, status: "ACTIVE" },
-    include: {
-      categories: {
-        orderBy: { position: "asc" },
-        include: {
-          items: {
-            orderBy: { position: "asc" },
-          },
-        },
-      },
-    },
-  });
+  const restaurant = await getMenuRestaurant(slug);
 
   if (!restaurant) {
     notFound();

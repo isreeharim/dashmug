@@ -65,19 +65,20 @@ export async function createRestaurantAction(formData: {
 // Create Category
 export async function createCategoryAction(restaurantId: string, data: { name: string; description?: string }) {
   const user = await getAuthenticatedUser();
-  await verifyRestaurantOwnership(restaurantId, user.id);
 
   const parsed = categorySchema.safeParse(data);
   if (!parsed.success) {
     throw new Error(`Validation Error: ${JSON.stringify(parsed.error.flatten().fieldErrors)}`);
   }
 
-  // Get max position to append
-  const maxPositionCategory = await db.category.findFirst({
-    where: { restaurantId },
-    orderBy: { position: "desc" },
-    select: { position: true },
-  });
+  const [restaurant, maxPositionCategory] = await Promise.all([
+    verifyRestaurantOwnership(restaurantId, user.id),
+    db.category.findFirst({
+      where: { restaurantId },
+      orderBy: { position: "desc" },
+      select: { position: true },
+    }),
+  ]);
   const position = maxPositionCategory ? maxPositionCategory.position + 1 : 0;
 
   const category = await db.category.create({
@@ -89,29 +90,26 @@ export async function createCategoryAction(restaurantId: string, data: { name: s
     },
   });
 
-  const restaurant = await db.restaurant.findUnique({ where: { id: restaurantId }, select: { slug: true } });
-  if (restaurant) {
-    revalidatePath("/dashboard");
-    revalidatePath(`/menu/${restaurant.slug}`);
-  }
+  revalidatePath("/dashboard");
+  revalidatePath(`/menu/${restaurant.slug}`);
 
   return category;
 }
 
 // Delete Category
 export async function deleteCategoryAction(categoryId: string) {
-  const user = await getAuthenticatedUser();
-
-  const category = await db.category.findUnique({
-    where: { id: categoryId },
-    include: { restaurant: true },
-  });
+  const [user, category] = await Promise.all([
+    getAuthenticatedUser(),
+    db.category.findUnique({ where: { id: categoryId }, include: { restaurant: true } }),
+  ]);
 
   if (!category) {
     throw new Error("Category not found");
   }
 
-  await verifyRestaurantOwnership(category.restaurantId, user.id);
+  if (category.restaurant.ownerId !== user.id) {
+    throw new Error("Forbidden: You do not own this restaurant.");
+  }
 
   await db.category.delete({
     where: { id: categoryId },
@@ -134,25 +132,24 @@ export async function createMenuItemAction(data: {
   isFeatured: boolean;
   imageUrl?: string;
 }) {
-  const user = await getAuthenticatedUser();
-
-  const category = await db.category.findUnique({
-    where: { id: data.categoryId },
-    include: { restaurant: true },
-  });
+  const [user, category] = await Promise.all([
+    getAuthenticatedUser(),
+    db.category.findUnique({ where: { id: data.categoryId }, include: { restaurant: true } }),
+  ]);
 
   if (!category) {
     throw new Error("Category not found");
   }
 
-  await verifyRestaurantOwnership(category.restaurantId, user.id);
+  if (category.restaurant.ownerId !== user.id) {
+    throw new Error("Forbidden: You do not own this restaurant.");
+  }
 
   const parsed = menuItemSchema.safeParse(data);
   if (!parsed.success) {
     throw new Error(`Validation Error: ${JSON.stringify(parsed.error.flatten().fieldErrors)}`);
   }
 
-  // Get max position to append
   const maxPositionItem = await db.menuItem.findFirst({
     where: { categoryId: data.categoryId },
     orderBy: { position: "desc" },
@@ -194,18 +191,21 @@ export async function updateMenuItemAction(
     imageUrl?: string;
   }
 ) {
-  const user = await getAuthenticatedUser();
-
-  const item = await db.menuItem.findUnique({
-    where: { id: itemId },
-    include: { category: { include: { restaurant: true } } },
-  });
+  const [user, item] = await Promise.all([
+    getAuthenticatedUser(),
+    db.menuItem.findUnique({
+      where: { id: itemId },
+      include: { category: { include: { restaurant: true } } },
+    }),
+  ]);
 
   if (!item) {
     throw new Error("Menu item not found");
   }
 
-  await verifyRestaurantOwnership(item.category.restaurantId, user.id);
+  if (item.category.restaurant.ownerId !== user.id) {
+    throw new Error("Forbidden: You do not own this restaurant.");
+  }
 
   const parsed = menuItemSchema.safeParse(data);
   if (!parsed.success) {
@@ -234,18 +234,21 @@ export async function updateMenuItemAction(
 
 // Delete Menu Item
 export async function deleteMenuItemAction(itemId: string) {
-  const user = await getAuthenticatedUser();
-
-  const item = await db.menuItem.findUnique({
-    where: { id: itemId },
-    include: { category: { include: { restaurant: true } } },
-  });
+  const [user, item] = await Promise.all([
+    getAuthenticatedUser(),
+    db.menuItem.findUnique({
+      where: { id: itemId },
+      include: { category: { include: { restaurant: true } } },
+    }),
+  ]);
 
   if (!item) {
     throw new Error("Menu item not found");
   }
 
-  await verifyRestaurantOwnership(item.category.restaurantId, user.id);
+  if (item.category.restaurant.ownerId !== user.id) {
+    throw new Error("Forbidden: You do not own this restaurant.");
+  }
 
   await db.menuItem.delete({
     where: { id: itemId },

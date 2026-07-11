@@ -16,68 +16,48 @@ export default async function DashboardPage() {
     );
   }
 
-  // Find user and restaurants
-  const user = await db.user.findUnique({
-    where: { id: dbUser.id },
-    include: {
-      restaurants: {
-        where: { status: "ACTIVE" },
-      },
-    },
-  });
-
-  if (!user) {
-    return <OnboardingClient />;
-  }
-
   // Onboarding: If user has no active restaurants, render setup view
-  if (user.restaurants.length === 0) {
+  if (dbUser.restaurants.length === 0) {
     return <OnboardingClient />;
   }
 
   // Pick first restaurant for the dashboard overview
-  const restaurant = user.restaurants[0];
+  const restaurant = dbUser.restaurants[0];
 
   // 1. Total scans
-  const totalScans = await db.qRScan.count({
-    where: { qrCode: { restaurantId: restaurant.id } },
-  });
-
-  // 2. Scans this month
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
-  const monthScans = await db.qRScan.count({
-    where: {
-      qrCode: { restaurantId: restaurant.id },
-      scannedAt: { gte: startOfMonth },
-    },
-  });
-
-  // 3. Menu item metrics
-  const totalItems = await db.menuItem.count({
-    where: { category: { restaurantId: restaurant.id } },
-  });
-
-  const featuredItems = await db.menuItem.count({
-    where: {
-      category: { restaurantId: restaurant.id },
-      isFeatured: true,
-    },
-  });
-
-  // 4. Last 7 days scans metric
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  const scans = await db.qRScan.findMany({
-    where: {
-      qrCode: { restaurantId: restaurant.id },
-      scannedAt: { gte: sevenDaysAgo },
-    },
-    select: { scannedAt: true },
-  });
+  // These are independent database operations. Running them together avoids
+  // serial network round trips on every dashboard load.
+  const [totalScans, monthScans, totalItems, featuredItems, scans, fullRestaurant] = await Promise.all([
+    db.qRScan.count({ where: { qrCode: { restaurantId: restaurant.id } } }),
+    db.qRScan.count({
+      where: { qrCode: { restaurantId: restaurant.id }, scannedAt: { gte: startOfMonth } },
+    }),
+    db.menuItem.count({ where: { category: { restaurantId: restaurant.id } } }),
+    db.menuItem.count({
+      where: { category: { restaurantId: restaurant.id }, isFeatured: true },
+    }),
+    db.qRScan.findMany({
+      where: { qrCode: { restaurantId: restaurant.id }, scannedAt: { gte: sevenDaysAgo } },
+      select: { scannedAt: true },
+    }),
+    db.restaurant.findUnique({
+      where: { id: restaurant.id },
+      include: {
+        qrCodes: { select: { publicId: true, isActive: true } },
+        categories: {
+          orderBy: { position: "asc" },
+          include: { items: { orderBy: { position: "asc" } } },
+        },
+      },
+    }),
+  ]);
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const scansLast7Days = Array.from({ length: 7 }).map((_, i) => {
@@ -91,24 +71,6 @@ export default async function DashboardPage() {
     }).length;
 
     return { day: dayLabel, count };
-  });
-
-  // Get full restaurant structure for CRUD UI
-  const fullRestaurant = await db.restaurant.findUnique({
-    where: { id: restaurant.id },
-    include: {
-      qrCodes: {
-        select: { publicId: true, isActive: true },
-      },
-      categories: {
-        orderBy: { position: "asc" },
-        include: {
-          items: {
-            orderBy: { position: "asc" },
-          },
-        },
-      },
-    },
   });
 
   if (!fullRestaurant) {
@@ -152,7 +114,7 @@ export default async function DashboardPage() {
         featuredItems,
         scansLast7Days,
       }}
-      ownerName={user.name || user.email.split("@")[0] || "Owner"}
+      ownerName={dbUser.name || dbUser.email.split("@")[0] || "Owner"}
     />
   );
 }

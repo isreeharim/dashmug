@@ -36,23 +36,18 @@ export default async function AdminPage() {
   }
 
   // Fetch administrator metrics
-  const totalRestaurants = await db.restaurant.count();
-  const activeOwners = await db.user.count({
-    where: { role: UserRole.RESTAURANT_OWNER },
-  });
-
-  // Load all restaurants
-  const restaurants = await db.restaurant.findMany({
-    include: {
-      owner: {
-        select: {
-          name: true,
-          email: true,
+  const [totalRestaurants, activeOwners, restaurants] = await Promise.all([
+    db.restaurant.count(),
+    db.user.count({ where: { role: UserRole.RESTAURANT_OWNER } }),
+    db.restaurant.findMany({
+      include: {
+        owner: {
+          select: { name: true, email: true },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   // Format restaurant data
   const formattedRestaurants = restaurants.map((r) => ({
