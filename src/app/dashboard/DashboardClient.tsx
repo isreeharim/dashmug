@@ -12,7 +12,8 @@ import {
   Edit3, 
   X, 
   Leaf, 
-  Drumstick
+  Drumstick,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
@@ -22,6 +23,7 @@ import {
   updateMenuItemAction, 
   deleteMenuItemAction 
 } from "./actions";
+import { signOutAction } from "../auth-actions";
 
 interface DashboardClientProps {
   restaurant: {
@@ -63,7 +65,18 @@ interface DashboardClientProps {
 export default function DashboardClient({ restaurant, stats, ownerName }: DashboardClientProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "menu" | "qr">("overview");
   const [isPending, startTransition] = useTransition();
+  const [isPendingLogout, startLogoutTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const handleLogout = () => {
+    startLogoutTransition(async () => {
+      try {
+        await signOutAction();
+      } catch {
+        setError("Failed to sign out. Please try again.");
+      }
+    });
+  };
 
   // Modals / Form States
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
@@ -256,14 +269,23 @@ export default function DashboardClient({ restaurant, stats, ownerName }: Dashbo
               Managing <span className="font-semibold text-[#17241f]">{restaurant.name}</span>
             </p>
           </div>
-          <a
-            href={`/menu/${restaurant.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#dbe2db] bg-white px-4 py-2.5 text-sm font-bold shadow-sm transition-transform active:scale-[0.98]"
-          >
-            View Live Menu <ExternalLink size={15} />
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href={`/menu/${restaurant.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#dbe2db] bg-white px-4 py-2.5 text-sm font-bold shadow-sm transition-transform active:scale-[0.98]"
+            >
+              View Live Menu <ExternalLink size={15} />
+            </a>
+            <button
+              onClick={handleLogout}
+              disabled={isPendingLogout}
+              className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-55/10 hover:bg-red-55/20 text-red-600 px-4 py-2.5 text-sm font-bold shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPendingLogout ? "Logging out..." : "Logout"} <LogOut size={15} />
+            </button>
+          </div>
         </header>
 
         {error && (
