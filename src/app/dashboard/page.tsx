@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import DashboardClient from "./DashboardClient";
 import OnboardingClient from "./OnboardingClient";
 import { getSessionUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -9,11 +10,7 @@ export default async function DashboardPage() {
   const { dbUser } = await getSessionUser();
 
   if (!dbUser) {
-    return (
-      <main className="p-6 text-center text-sm font-bold text-red-500">
-        Could not initialize local session database connection.
-      </main>
-    );
+    redirect("/sign-in");
   }
 
   // Onboarding: If user has no active restaurants, render setup view
